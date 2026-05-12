@@ -40,36 +40,34 @@ with col2:
 
 @st.cache_data(ttl=300)
 def load_and_process_data():
-    # Исправленная ссылка для экспорта Google Sheets как CSV
+    # Правильный ID из вашей ссылки
     sheet_id = '1-2lEPkXMpAw17ppF3aqzjYY6vwW4vtKf1Km4Qv2XuJM'
     gid = '0'
-    csv_url = f'https://docs.google.com/spreadsheets/d/1I1BlwgpsvLgA-cc9n6Z6eiE76Im1wmKdyErOFg_zALA/edit?gid=0#gid=0'
+    
+    # ✅ Правильный URL для экспорта CSV
+    csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}'
     
     try:
-        # Пробуем загрузить с разными настройками
-        try:
-            df = pd.read_csv(csv_url)
-        except:
-            # Если не получилось, пробуем с другими разделителями
-            response = requests.get(csv_url)
-            response.raise_for_status()
-            
-            # Пробуем разные разделители
-            for sep in [',', ';', '\t']:
-                try:
-                    df = pd.read_csv(io.StringIO(response.text), sep=sep, engine='python')
+        # Загружаем с указанием кодировки и разделителя
+        df = pd.read_csv(csv_url, encoding='utf-8', on_bad_lines='skip')
+        
+        # Удаляем полностью пустые строки и столбцы
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+        
+        # Пропускаем служебные строки заголовка (если есть)
+        # Находим строку, где есть "Судно" в первом столбце
+        if 'Судно' not in df.columns and len(df) > 0:
+            for idx, row in df.iterrows():
+                if str(row.iloc[0]).strip() == 'Судно':
+                    df = df.rename(columns=df.iloc[idx]).drop(df.index[:idx+1])
                     break
-                except:
-                    continue
-            else:
-                # Если всё ещё не получилось, пробуем с engine='python'
-                df = pd.read_csv(csv_url, sep=None, engine='python')
         
         st.success("✅ Данные загружены")
         return df
         
     except Exception as e:
         st.error(f"❌ Ошибка загрузки: {e}")
+        st.info("💡 Убедитесь, что таблица опубликована: Файл → Поделиться → Опубликовать в интернете")
         return None
 
 df = load_and_process_data()
